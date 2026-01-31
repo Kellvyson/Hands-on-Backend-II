@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 import requests
-
+import xmltodict
 app = FastAPI()
 
 # URL da PokéAPI
@@ -51,3 +51,39 @@ def buscar_pokemon(pokemon: str):
     
     except Exception as e:
         return {**fallback, "erro": str(e)}
+
+# config do sistema legado
+LEGADO_URL = "http://localhost:8001/legado"
+
+
+@app.get("/adaptado")
+def adaptar_legado():
+    """Pega dados do sistema legado (XML) e converte pra JSON"""
+    
+    try:
+        resp = requests.get(
+            LEGADO_URL,
+            headers={"X-Legado-Key": "1234"},
+            timeout=5
+        )
+        resp.raise_for_status()
+        
+        # converte xml pra dict
+        dados = xmltodict.parse(resp.text)
+        produto = dados["produto"]
+        
+        return {
+            "id": produto["codigo"],
+            "nome": produto["nome"],
+            "preco": float(produto["preco"]),
+            "estoque": int(produto["estoque"])
+        }
+    
+    except requests.exceptions.Timeout:
+        return {"erro": "Sistema legado demorou demais"}
+    
+    except requests.exceptions.ConnectionError:
+        return {"erro": "Sistema legado fora do ar"}
+    
+    except:
+        return {"erro": "Falha ao conectar com sistema legado"}
