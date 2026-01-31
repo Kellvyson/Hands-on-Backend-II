@@ -87,3 +87,41 @@ def adaptar_legado():
     
     except:
         return {"erro": "Falha ao conectar com sistema legado"}
+    
+# lista pra guardar eventos processados
+eventos_processados = []
+ids_processados = set()
+
+
+@app.post("/webhook")
+def receber_webhook(evento: dict):
+    # valida campos obrigatórios
+    if "tipo" not in evento or "pedido_id" not in evento:
+        return {"erro": "Falta tipo ou pedido_id"}
+    
+    # valida segredo
+    if evento.get("segredo") != "meusegredo123":
+        return {"erro": "Não autorizado"}
+    
+    pedido_id = evento["pedido_id"]
+    
+    # checa se já processou (idempotência)
+    if pedido_id in ids_processados:
+        print(f"[WEBHOOK] Evento duplicado ignorado - Pedido {pedido_id}")
+        return {"mensagem": "Evento já processado", "pedido_id": pedido_id}
+    
+    # salva o evento
+    ids_processados.add(pedido_id)
+    eventos_processados.append({
+        "tipo": evento["tipo"],
+        "pedido_id": pedido_id
+    })
+    
+    print(f"[WEBHOOK] Novo evento: {evento['tipo']} - Pedido {pedido_id}")
+    
+    return {"mensagem": "Evento processado", "pedido_id": pedido_id}
+
+
+@app.get("/eventos")
+def listar_eventos():
+    return {"total": len(eventos_processados), "eventos": eventos_processados}
